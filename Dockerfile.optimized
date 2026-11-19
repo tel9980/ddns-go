@@ -1,0 +1,54 @@
+# syntax=docker/dockerfile:1
+
+# Optimized, source-built image for personal Dockge deployments.
+# Builds a static Go binary and runs as an unprivileged user with a
+# dedicated writable config directory.
+
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG VERSION=dev
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN GOOS="${TARGETOS:-linux}" \
+    GOARCH="${TARGETARCH:-amd64}" \
+    GOARM="${TARGETVARIANT#v}" \
+    CGO_ENABLED=0 \
+    go build -trimpath \
+      -ldflags="-s -w -X main.version=${VERSION} -extldflags=-static" \
+      -o /out/ddns-go .
+
+FROM alpine:3.22
+
+LABEL org.opencontainers.image.title="ddns-go (Dockge optimized)" \
+      org.opencontainers.image.description="Optimized ddns-go image for personal Dockge stacks" \
+      org.opencontainers.image.source="https://github.com/tel9980/ddns-go" \
+      org.opencontainers.image.licenses="MIT"
+
+RUN apk add --no-cache ca-certificates curl tini tzdata \
+    && addgroup -g 10001 -S ddns \
+    && adduser -u 10001 -S -G ddns -h /config ddns \
+    && mkdir -p /config \
+    && chown -R ddns:ddns /config
+
+ENV TZ=Asia/Shanghai \
+    DDNS_CONFIG_FILE_PATH=/config/.ddns_go_config.yaml
+
+WORKDIR /app
+COPY --from=builder /out/ddns-go /app/ddns-go
+
+USER ddns:ddns
+EXPOSE 9876
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:9876/login >/dev/null 2>&1 || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--", "/app/ddns-go"]
+CMD ["-l", ":9876", "-f", "300", "-c", "/config/.ddns_go_config.yaml"]
