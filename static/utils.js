@@ -100,12 +100,22 @@ const request = {
     }
     return await (parseFunc||this.parse)(response)
   },
+  getCookie: function(name) {
+    const match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'))
+    return match ? decodeURIComponent(match[2]) : ''
+  },
   post: async function(path, data, parseFunc) {
     if (typeof data === 'object') {
       data = JSON.stringify(data)
     }
+    const csrfToken = this.getCookie('csrf_token')
+    const headers = { 'Content-Type': 'application/json' }
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken
+    }
     const response = await fetch(`${this.baseURL}${path}`, {
       method: 'POST',
+      headers: headers,
       body: data
     })
     if (response.redirected) {

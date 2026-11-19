@@ -22,6 +22,12 @@ func Auth(f ViewFunc) ViewFunc {
 
 		conf, _ := config.GetConfigCached()
 
+		// CSRF protection for write requests behind a valid session
+		if isWriteMethod(r) && !validCsrf(r) {
+			http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
+			return
+		}
+
 		// 禁止公网访问
 		if conf.NotAllowWanAccess {
 			if !util.IsPrivateNetwork(r.RemoteAddr) {
@@ -35,6 +41,8 @@ func Auth(f ViewFunc) ViewFunc {
 		if cookieInSystem.Value != "" &&
 			cookieInSystem.Value == cookieInWeb.Value &&
 			cookieInSystem.Expires.After(time.Now()) {
+			// Make sure an authenticated browser always has a CSRF cookie.
+			ensureCsrfCookie(w, r)
 			f(w, r) // 执行被装饰的函数
 			return
 		}
