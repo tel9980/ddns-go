@@ -32,7 +32,15 @@ LABEL org.opencontainers.image.title="ddns-go (Dockge optimized)" \
       org.opencontainers.image.source="https://github.com/tel9980/ddns-go" \
       org.opencontainers.image.licenses="MIT"
 
-RUN apk add --no-cache ca-certificates curl tini tzdata \
+# Runtime packages (conservative set):
+#   - ca-certificates: TLS trust for outbound DDNS provider calls.
+#   - tini:           PID 1 signal reaping/forwarding; Go handles SIGTERM itself,
+#                     but keeping tini is the safer choice for container shutdown.
+#   - tzdata:         Go 1.26 does not embed timezone data unless time/tzdata is
+#                     imported; keep it so TZ=Asia/Shanghai works reliably.
+#   - curl:           REMOVED. alpine's busybox already provides wget, which is
+#                     enough for the local /healthz check below; one less package.
+RUN apk add --no-cache ca-certificates tini tzdata \
     && addgroup -g 10001 -S ddns \
     && adduser -u 10001 -S -G ddns -h /config ddns \
     && mkdir -p /config \
@@ -47,8 +55,10 @@ COPY --from=builder /out/ddns-go /app/ddns-go
 USER ddns:ddns
 EXPOSE 9876
 
+# busybox wget ships with alpine; no curl needed. /healthz is the fork's
+# lightweight health endpoint (added alongside the login hardening).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:9876/login >/dev/null 2>&1 || exit 1
+  CMD wget -q -O /dev/null http://127.0.0.1:9876/healthz || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--", "/app/ddns-go"]
 CMD ["-l", ":9876", "-f", "300", "-c", "/config/.ddns_go_config.yaml"]

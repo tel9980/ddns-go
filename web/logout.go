@@ -17,6 +17,8 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	}
 	// 设置过期的 Cookie
 	http.SetCookie(w, cookieInSystem)
+	// 同时清理 CSRF cookie，避免退出后残留可复用的 token
+	clearCsrfCookie(w)
 
 	// 重定向用户到登录页面
 	http.Redirect(w, r, "./login", http.StatusFound)

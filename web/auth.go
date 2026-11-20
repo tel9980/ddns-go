@@ -23,7 +23,7 @@ func Auth(f ViewFunc) ViewFunc {
 		conf, _ := config.GetConfigCached()
 
 		// CSRF protection for write requests behind a valid session
-		if isWriteMethod(r) && !validCsrf(r) {
+		if isWriteMethod(r) && !validCsrfWithOrigin(r) {
 			http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
 			return
 		}

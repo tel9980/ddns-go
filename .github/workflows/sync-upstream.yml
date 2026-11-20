@@ -1,0 +1,56 @@
+name: Sync upstream
+
+# 手动触发，或每周一 02:00 UTC（北京时间 10:00）自动检查并同步上游。
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork (full history)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote and fetch
+        run: |
+          git remote add upstream https://github.com/jeessy2/ddns-go.git
+          git fetch upstream master
+
+      - name: Rebase fork commits on upstream/master
+        id: rebase
+        run: |
+          set +e
+          git rebase upstream/master
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            git rebase --abort
+            echo "### Upstream sync conflict" >> "$GITHUB_STEP_SUMMARY"
+            echo "Rebase onto upstream/master failed. Resolve it locally with:" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo 'git fetch upstream master' >> "$GITHUB_STEP_SUMMARY"
+            echo 'git rebase upstream/master' >> "$GITHUB_STEP_SUMMARY"
+            echo '# edit conflicting files, then: git add <files> && git rebase --continue' >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Rebase conflict with upstream/master. See job summary and UPSTREAM_SYNC.md for resolution steps."
+            exit 1
+          fi
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Sync result
+        if: success()
+        run: "echo 'Upstream sync check passed: fork commits rebase cleanly and go test ./... succeeds.'"

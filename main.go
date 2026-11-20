@@ -189,7 +189,19 @@ func faviconFsFunc(writer http.ResponseWriter, request *http.Request) {
 	http.FileServer(http.FS(faviconEmbeddedFile)).ServeHTTP(writer, request)
 }
 
+// healthzFunc is a lightweight liveness probe. It is registered on its own
+// exact path (net/http's ServeMux prefers exact matches over the "/" wildcard)
+// and is intentionally not wrapped in Auth/AuthAssert.
+func healthzFunc(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
+}
+
 func runWebServer() error {
+	// Lightweight health check, deliberately outside authentication.
+	// Exact paths take precedence over the "/" wildcard in net/http.ServeMux.
+	http.HandleFunc("/healthz", healthzFunc)
+
 	// 启动静态文件服务
 	http.HandleFunc("/static/", web.AuthAssert(staticFsFunc))
 	http.HandleFunc("/favicon.ico", web.AuthAssert(faviconFsFunc))

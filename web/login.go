@@ -60,15 +60,15 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 	conf, _ := config.GetConfigCached()
 	util.InitLogLang(conf.Lang)
 
-	requestIP := r.RemoteAddr
+	requestIP := clientIPForRateLimit(r)
 	if loginLocked(requestIP) {
 		util.Log("%q 登录失败次数过多，已锁定", requestIP)
 		returnError(w, util.LogStr("登录失败次数过多，请稍后再试"))
 		return
 	}
 
-	// CSRF check for the login endpoint
-	if !validCsrf(r) {
+	// CSRF check for the login endpoint (Origin/Referer + double-submit cookie).
+	if !validCsrfWithOrigin(r) {
 		returnError(w, util.LogStr("CSRF 验证失败，请刷新页面重试"))
 		return
 	}
@@ -91,7 +91,6 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 		returnError(w, util.LogStr("必须输入用户名/密码"))
 		return
 	}
-
 
 	// 初始化用户名密码。新安装默认禁止公网访问，不再根据可伪造的
 	// Referer 请求头放宽限制；如需公网访问请手动修改配置。
@@ -132,6 +131,10 @@ func LoginFunc(w http.ResponseWriter, r *http.Request) {
 		}
 		// 写入cookie
 		http.SetCookie(w, cookieInSystem)
+
+		// Rotate the CSRF token on privilege change; the pre-login token is no
+		// longer accepted by the now authenticated session.
+		rotateCsrfCookie(w)
 
 		util.Log("%q 登录成功", requestIP)
 		resetLogin(requestIP)

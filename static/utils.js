@@ -108,7 +108,16 @@ const request = {
     if (typeof data === 'object') {
       data = JSON.stringify(data)
     }
-    const csrfToken = this.getCookie('csrf_token')
+    // Prefer the token injected by the server (login page); fall back to the
+    // cookie for pages rendered before this change.
+    let csrfToken = ''
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]')
+    if (csrfMeta && csrfMeta.content) {
+      csrfToken = csrfMeta.content
+    }
+    if (!csrfToken) {
+      csrfToken = this.getCookie('csrf_token')
+    }
     const headers = { 'Content-Type': 'application/json' }
     if (csrfToken) {
       headers['X-CSRF-Token'] = csrfToken
