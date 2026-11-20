@@ -4,6 +4,17 @@
 
 中文 | [English](https://github.com/jeessy2/ddns-go/blob/master/README_EN.md)
 
+> ## 🛠️ tel9980 优化镜像（本文档所在 fork）
+>
+> 本仓库是 [jeessy2/ddns-go](https://github.com/jeessy2/ddns-go) 的个人优化 fork，面向 **Dockge / Docker 个人部署**，DDNS 功能与上游一致。
+>
+> - **镜像**：`ghcr.io/tel9980/ddns-go:optimized`（也带 `:ddns-go-optimized` 和 `:sha-<commit>` 标签，amd64 + arm64）。**公开可拉取，无需登录**。由源码多阶段构建，静态 Go 二进制，运行时以非 root 用户（`ddns`, uid 10001）运行。
+> - **已做加固**：CSRF（Origin/Referer 校验、登录后轮换、登出清理）、按 IP 登录限流（防止反代下全局误锁，1 万 IP 上限与过期淘汰）、首次设置不再按可伪造的 Referer 放开公网访问、语义化 `/healthz`、每周上游同步检查工作流。
+> - **配置持久化**：`/config/.ddns_go_config.yaml`（环境变量 `DDNS_CONFIG_FILE_PATH`）。Dockge 中推荐用 host 网络，卷挂载一个专用目录到 `/config`。
+> - **反代后的可信 IP**：只有当你确认 ddns-go 位于**可信的本地反向代理**之后，才设置环境变量 `DDNS_TRUST_PROXY=true` 以采信 `X-Forwarded-For` 做按 IP 限流；否则请保持默认（使用直连 `RemoteAddr`）。
+> - **配合 nginxWebUI**：在本人的 `tel9980/nginxWebUI` 仓库 `dockge-compose.yaml` 中已作为同栈 `ddns-go` 服务配置；nginxWebUI 走 bridge 网络时反代目标填 `http://host.docker.internal:9876`。
+> - **跟随上游**：见 [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md)。上游原始说明见下方。
+
 自动获得你的公网 IPv4 或 IPv6 地址，并解析到对应的域名服务。
 
 - [DDNS-GO](#ddns-go)

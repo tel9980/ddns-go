@@ -4,6 +4,17 @@
 
 [中文](https://github.com/jeessy2/ddns-go/blob/master/README.md) | English
 
+> ## 🛠️ tel9980 optimized image (this fork)
+>
+> This repository is a personal optimization fork of [jeessy2/ddns-go](https://github.com/jeessy2/ddns-go) for **Dockge / Docker personal deployments**. DDNS behavior matches upstream.
+>
+> - **Image**: `ghcr.io/tel9980/ddns-go:optimized` (also `:ddns-go-optimized` and `:sha-<commit>`, amd64 + arm64). Public pull, no login required. Built from source in a multi-stage Dockerfile as a static Go binary, running as an unprivileged user (`ddns`, uid 10001).
+> - **Hardening**: CSRF (Origin/Referer validation, rotation after login, cookie cleared on logout), per-IP login rate limiting (no global lock behind proxies, 10k-IP cap with stale eviction), first-setup no longer relaxes WAN protection from a spoofable Referer, semantic `/healthz`, and a weekly upstream-sync check workflow.
+> - **Config persistence**: `/config/.ddns_go_config.yaml` (env `DDNS_CONFIG_FILE_PATH`). In Dockge, prefer host networking and mount a dedicated directory at `/config`.
+> - **Behind a reverse proxy**: only set `DDNS_TRUST_PROXY=true` when ddns-go is definitely behind a trusted local reverse proxy; this enables `X-Forwarded-For` for per-IP rate limiting. Otherwise keep the default (direct `RemoteAddr`).
+> - **With nginxWebUI**: the `dockge-compose.yaml` in the author's `tel9980/nginxWebUI` repo already runs it as a sibling service; when nginxWebUI uses bridge networking, the proxy target is `http://host.docker.internal:9876`.
+> - **Following upstream**: see [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md). Original upstream documentation follows below.
+
 Automatically obtain your public IPv4 or IPv6 address and resolve it to the corresponding domain name service.
 
 - [DDNS-GO](#ddns-go)

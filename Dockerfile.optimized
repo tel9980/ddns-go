@@ -41,6 +41,7 @@ LABEL org.opencontainers.image.title="ddns-go (Dockge optimized)" \
 #   - curl:           REMOVED. alpine's busybox already provides wget, which is
 #                     enough for the local /healthz check below; one less package.
 RUN apk add --no-cache ca-certificates tini tzdata \
+    && apk upgrade --no-cache \
     && addgroup -g 10001 -S ddns \
     && adduser -u 10001 -S -G ddns -h /config ddns \
     && mkdir -p /config \
