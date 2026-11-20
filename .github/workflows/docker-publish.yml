@@ -59,14 +59,9 @@ jobs:
             echo "value=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           fi
 
-      # NOTE: docker/metadata-action@v5 (Node 20 runtime) triggers GitHub's
-      # "Node 20 is deprecated" warning. v5 is still the latest published major
-      # for these actions, so this is a non-blocking upstream warning; do not
-      # bump blindly to a non-existent v7/v8. Keep pinned here until a real new
-      # major is released upstream.
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -76,11 +71,9 @@ jobs:
             type=ref,event=tag
             type=sha
 
-      # Same Node 20 warning applies to build-push-action@v6; v6 is the current
-      # published major, so we keep it pinned (see note above).
       - name: Build and push
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile.optimized
@@ -99,11 +92,10 @@ jobs:
 
       # ---- Supply chain hardening (observation mode) -----------------------
       # Vulnerability scan: fail-build:false keeps the workflow green while we
-      # observe findings. Anchore scan-action@v6 is a known published major;
-      # @v7 is not assumed to exist. SARIF upload is intentionally omitted for
-      # now (would require security-events: write and code-scanning enablement).
+      # observe findings. SARIF upload is intentionally omitted for now (would
+      # require security-events: write and code-scanning enablement).
       - name: Scan image for vulnerabilities
-        uses: anchore/scan-action@v6
+        uses: anchore/scan-action@v7
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:optimized
           fail-build: false
