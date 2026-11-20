@@ -65,6 +65,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=raw,value=latest
             type=raw,value=optimized
             type=raw,value=ddns-go-optimized
             type=raw,value=${{ steps.version.outputs.value }}

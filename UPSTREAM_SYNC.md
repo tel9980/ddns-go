@@ -67,6 +67,12 @@ git rebase --abort
 
 > 注：`web/logout.go` 和 `main.go` 的具体改动可能已部分被上游吸收；每次同步请以 `git diff upstream/master...HEAD`（rebase 前）或 `git log upstream/master..HEAD` 的实际结果为准。
 
+## Round 9 — 最终加固（同步时勿丢失）
+
+- `web/security.go` 的 CSRF cookie 显式设置 30 天 `MaxAge`（与 `Expires` 对齐，避免客户端把持久 cookie 当成会话 cookie）。
+- 按 IP 登录状态表在“所有 IP 都处于锁定”时也会淘汰最快到期的锁定项，防止 `maxLoginTrackedIPs` 上限被锁死；仅影响限流表容量，不改可信代理语义。
+- CI 工作流新增滚动 `latest` 标签；同步上游 release 流程时不要覆盖本 fork 的 `docker-publish.yml`。
+
 ## 五、同步检查清单
 
 - [ ] `git fetch upstream master` 成功

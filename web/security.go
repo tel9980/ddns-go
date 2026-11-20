@@ -37,6 +37,7 @@ func setCsrfCookie(w http.ResponseWriter, token string) {
 		Name:     csrfCookieName,
 		Value:    token,
 		Path:     "/",
+		MaxAge:   int((30 * 24 * time.Hour) / time.Second),
 		Expires:  time.Now().AddDate(0, 0, 30),
 		HttpOnly: false, // JS reads this value to send the CSRF header.
 		SameSite: http.SameSiteLaxMode,
@@ -264,19 +265,28 @@ func recordLoginFailure(ip string) {
 			pruneStaleLoginStatesLocked(time.Now())
 		}
 		if len(ipLoginStates) >= maxLoginTrackedIPs {
-			// Still full: drop the oldest unused state to make room.
+			// Still full: prefer dropping the oldest unlocked state. If every
+			// tracked IP is locked, evict the soonest-to-expire lock so the
+			// map stays bounded during a distributed login attack.
 			var oldestIP string
 			var oldest time.Time
+			var expiringIP string
+			var expiring time.Time
 			for candidateIP, candidate := range ipLoginStates {
-				if !candidate.lockedUntil.IsZero() {
-					continue // never drop an actively locked IP
+				if candidate.lockedUntil.IsZero() {
+					if oldestIP == "" || candidate.lastSeen.Before(oldest) {
+						oldestIP, oldest = candidateIP, candidate.lastSeen
+					}
+					continue
 				}
-				if oldestIP == "" || candidate.lastSeen.Before(oldest) {
-					oldestIP, oldest = candidateIP, candidate.lastSeen
+				if expiringIP == "" || candidate.lockedUntil.Before(expiring) {
+					expiringIP, expiring = candidateIP, candidate.lockedUntil
 				}
 			}
 			if oldestIP != "" {
 				delete(ipLoginStates, oldestIP)
+			} else if expiringIP != "" {
+				delete(ipLoginStates, expiringIP)
 			}
 		}
 		st = &ipLoginState{lastSeen: time.Now()}
